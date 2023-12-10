@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+ <head>
+  <style type="text/css">
+   #filters{display:flex;gap:10px}.filter_input{font-family:arial,sans-serif;border-collapse:collapse;width:90%}.table_header_row{background-color:blue !important}table{font-family:arial,sans-serif;border-collapse:collapse;width:100%}td,th{border:1px solid #ddd;text-align:left;padding:8px}tr:nth-child(even){background-color:#ddd}
+  </style>
+ </head>
+ <body onload="init()">
+  <div id="filters">
+  </div>
+  <table id="table">
+  </table>
+  <br/>
+  <script type="text/javascript">
+   const post=async(url,payload,token='')=>{const headers={'Accept':'application/json, text/plain, */*','Accept-Language':'es-ES,es;q=0.9,en;q=0.8','Content-Type':'application/json','X-ID_CANAL_VENTA':'2','X-ID_IDIOMA':'es','X-ID_OFICINA':'999000','X-ID_PROGRAMA':'1',}
+if(token!==''){headers['Authorization']='Bearer '+token}
+const options={method:"POST",headers:headers,body:JSON.stringify(payload)}
+return fetch(url,options).then((response)=>{if(response.status===200){return response.json();}else{throw new Error("Something went wrong on API server!");}}).then((response)=>{return response}).catch((error)=>{console.error(error);});}
+const get=async(url)=>{const options={method:"GET"}
+return fetch(url,options).then((response)=>{if(response.status===200){return response.text();}else{throw new Error("Something went wrong on API server!");}}).then((response)=>{return response}).catch((error)=>{console.error(error);});}
+console.log("getData script load")
+const init=async()=>{const origen=337
+const plazas=1
+const transporte=true
+data=await getData(origen,plazas,transporte)
+data=parseData(data)
+initTable(data)}
+const getData=async(origen,plazas,transporte)=>{const login=await getToken()
+url="https://api.turismosocial.com/proceso-reserva-ws/rest/disponibilidad"
+payload={"origen":origen,"modalidad":"","zona":"","plazas":plazas,"transpIncl":transporte}
+data=[]
+for(const modalidad of Array(2).keys()){payload.modalidad=modalidad+1+''
+for(const zona of Array(81).keys()){payload.zona=zona+1+''
+data=data.concat(await post(url,payload,login.token))}}
+return data}
+const parseData=(data)=>{var new_data=[]
+data.forEach(element=>{item=element.disponibilidadSalidaInfos
+item.map(e=>e['estado']=element.estado)
+new_data=new_data.concat(item)});new_data=new_data.map(e=>{new_element={'Fecha':e.fechaSalida,'duracion':e.duracionViaje,'destino':e.destino,'plazasIndividual':e.plazasIndividual,'precioSalida':e.precioSalida,'plazas':e.plazasDisponibles,'lista':e.plazasListaEspera,'transporte':e.tieneTransporte,'estado':e.estado}
+for(const[k,v]of Object.entries(new_element)){new_element[k]=v+''}
+return new_element})
+return new_data}
+const getToken=async()=>{url="https://api.turismosocial.com/proceso-reserva-ws/auth/auth/login"
+payload={"username":"api_aa@turismosocial.com","password":"Test.4321"}
+return await post(url,payload)}
+const getOrigen=async()=>{url="https://reservasacc.turismosocial.com/"
+const html=await get(url)
+const parser=new DOMParser();const parsed=parser.parseFromString(html,"text/html");console.log(JSON.parse(parsed.getElementById('__NEXT_DATA__').innerText).props.pageProps.origins);}
+console.log("table script load")
+var data=[]
+const filterIds=[]
+const table=document.getElementById("table")
+var body=table.createTBody()
+function initTable(newData){data=newData
+const filtersRow=table.createTHead().insertRow(-1)
+filtersRow.setAttribute('class','table_filter_row')
+const headerRow=table.createTHead().insertRow(-1)
+headerRow.setAttribute('class','table_header_row')
+Object.keys(data[0]).forEach((key)=>{const cell_filter=filtersRow.insertCell(-1)
+cell_filter.appendChild(makeFilter(key))
+const cell_header=headerRow.insertCell(-1)
+cell_header.setAttribute('class','table_header_cell')
+cell_header.innerHTML=key;})
+table.createTBody()
+fillTable()}
+function makeFilter(key){const id='filter_'+key
+const el=document.createElement('DIV')
+el.setAttribute('class','filter_div')
+const filterHeader=document.createElement('INPUT')
+filterHeader.setAttribute('class','filter_input')
+filterHeader.setAttribute('type','text')
+filterHeader.setAttribute('id',id)
+filterHeader.setAttribute('onkeyup',"fillTable()")
+filterHeader.setAttribute('placeholder','Filtrar por '+key)
+const cross=document.createElement('BUTTON')
+cross.setAttribute('class','filter_button')
+cross.setAttribute('type','button')
+cross.setAttribute('onclick',"document.getElementById('"+id+"').value = ''; fillTable()")
+cross.innerHTML='X'
+el.appendChild(cross)
+el.appendChild(filterHeader)
+filterIds.push(id)
+return el}
+function fillTable(){body.remove()
+body=table.createTBody()
+const filtered_data=filterData()
+filtered_data.forEach((item)=>{var row=body.insertRow(-1);row.setAttribute('class','table_row')
+Object.values(item).forEach((value)=>{const cell=row.insertCell(-1)
+cell.setAttribute('class','table_cell')
+cell.innerHTML=value;})})}
+function filterData(){var filtered_data=data
+filterIds.forEach((id,i)=>{const filter_value=document.getElementById(id).value.toLowerCase()
+if(filter_value.length!==0)filtered_data=filtered_data.filter((item)=>{const value=Object.values(item)[i].toLowerCase()
+return value.includes(filter_value)})})
+return filtered_data}
+function test(){filterIds.forEach((id)=>console.log(document.getElementById(id).value))}
+  </script>
+ </body>
+</html>
